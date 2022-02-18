@@ -1,76 +1,84 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
-import TextField from '@material-ui/core/TextField';
+import { AgGridColumn, AgGridReact } from 'ag-grid-react';
 import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
-import { Tooltip } from '@material-ui/core';
+import AddTodo from './AddTodo';
+import 'ag-grid-community/dist/styles/ag-grid.css';
+import 'ag-grid-community/dist/styles/ag-theme-material.css';
 import IconButton from '@material-ui/core/IconButton';
 import DeleteIcon from '@material-ui/icons/Delete';
-import SaveIcon from '@material-ui/icons/Save';
 
 function App() {
-  const [todo, setTodo] = useState({description: '', date: ''});
   const [todos, setTodos] = useState([]);
 
-  const inputChanged = (event) => {
-    setTodo({...todo, [event.target.name]: event.target.value});
+  useEffect(() => {
+    fetchItems(); 
+  }, [])
+
+  const fetchItems = () => {
+    fetch("https://todolist-5c5de-default-rtdb.europe-west1.firebasedatabase.app/items/.json")
+    .then(response => response.json())
+    .then(data => addKeys(data))
+    .catch(err => console.error(err))
   }
 
-  const addTodo = () => {
-    setTodos([...todos, todo]);
-    setTodo({description: '', date: ''});
+  // Add keys to the todo objects
+  const addKeys = (data) => {
+    const keys = Object.keys(data);
+    const valueKeys = Object.values(data).map((item, index) => 
+    Object.defineProperty(item, 'id', {value: keys[index]}));
+    setTodos(valueKeys);
   }
 
-  const deleteTodo = (row) => {
-    setTodos(todos.filter((todo, index) => index !== row));
+  const addTodo = (newTodo) => {
+    fetch('https://todolist-5c5de-default-rtdb.europe-west1.firebasedatabase.app/items/.json',
+    {
+      method: 'POST',
+      body: JSON.stringify(newTodo)
+    })
+    .then(response => fetchItems())
+    .catch(err => console.error(err))
   }
+
+  const deleteTodo = (id) => {
+    fetch(`https://todolist-5c5de-default-rtdb.europe-west1.firebasedatabase.app/items/${id}.json`,
+   {
+      method: 'DELETE',
+    })
+    .then(response => fetchItems())
+    .catch(err => console.error(err))
+  }
+
 
   return (
     <div className="App">
       <AppBar position="static">
         <Toolbar>
-          <Typography variant="h6">
-            Todolist
+          <Typography variant="h5" noWrap>
+            TodoList
           </Typography>
         </Toolbar>
-      </AppBar>
-      <TextField 
-        style={{marginRight: 10}} 
-        label="Description" 
-        name="description" 
-        value={todo.description} 
-        onChange={inputChanged} 
-      />
-     <TextField 
-       style={{marginRight: 10}} 
-       label="Date" 
-       name="date" 
-       value={todo.date} 
-       onChange={inputChanged}
-      />
-     <IconButton style= {{margin: 10}} color="primary" variant="outlined" onClick={addTodo}>
-       <SaveIcon/> Add
-     </IconButton>
-     <table>
-    <tbody>
-    {
-      todos.map((todo, index) => 
-      <tr key={index}>
-        <td>{todo.description}</td>
-        <td>{todo.date}</td>
-        <td>
-          <Tooltip title="Delete todo">
-            <IconButton size="small" color="secondary" onClick={() => deleteTodo(index)}>
-              <DeleteIcon/>
-            </IconButton>
-          </Tooltip>
-          
-        </td>
-      </tr>)
-     }
-     </tbody>
-   </table>
+      </AppBar> 
+      <AddTodo addTodo={addTodo}/> 
+       <div className="ag-theme-material" style={ { height: 400, width: 700, margin: 'auto' } }>
+        <AgGridReact rowData={todos}>
+          <AgGridColumn sortable={true} filter={true} field='description' />
+          <AgGridColumn sortable={true} filter={true} field='date' />
+          <AgGridColumn sortable={true} filter={true} field='priority' />
+          <AgGridColumn 
+            headerName=''
+            field='id' 
+            width={90}
+            cellRendererFramework={ params => 
+              <IconButton onClick={() => deleteTodo(params.value)} size="small" color="secondary">
+                <DeleteIcon />
+              </IconButton>
+            }
+          />      
+        </AgGridReact>
+      </div>
   </div>
   );
 }
